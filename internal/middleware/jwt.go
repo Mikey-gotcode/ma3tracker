@@ -53,7 +53,6 @@ func RequireAuth() gin.HandlerFunc {
 			return
 		}
 
-		// Store claims in context for downstream handlers
 		if claims, ok := token.Claims.(jwt.MapClaims); ok {
 			c.Set("user_id", claims["user_id"])
 			c.Set("role", claims["role"])
@@ -66,23 +65,37 @@ func RequireAuth() gin.HandlerFunc {
 	}
 }
 
-// RequireAuthWithRole ensures the JWT is valid and the user has a specific role
+
 func RequireAuthWithRole(requiredRole string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// First ensure basic auth
-		req := RequireAuth()
-		req(c)
-		if c.IsAborted() {
+		// Validate the token
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Missing or invalid Authorization header"})
 			return
 		}
 
-		// Check role
-		roleIfc, exists := c.Get("role")
-		if !exists {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Role not found in token"})
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			return secret, nil
+		})
+		if err != nil || !token.Valid {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
 			return
 		}
-		if role, ok := roleIfc.(string); !ok || role != requiredRole {
+
+		// Extract claims
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
+			return
+		}
+
+		c.Set("user_id", claims["user_id"])
+		c.Set("role", claims["role"])
+
+		// Check role
+		if roleStr, ok := claims["role"].(string); !ok || roleStr != requiredRole {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
 			return
 		}

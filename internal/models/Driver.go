@@ -2,26 +2,18 @@
 package models
 
 import (
-	"time"
+	//"time"
 
 	"gorm.io/gorm"
 )
-
-// Driver represents a system user with role="driver"
 type Driver struct {
-	gorm.Model
-	ID        uint           `gorm:"primaryKey" json:"id"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
-	UserID uint `gorm:"uniqueIndex" json:"user_id"`
-
-	Name      string         `json:"name" binding:"required"`
-	Email     string         `gorm:"unique;not null" json:"email" binding:"required,email"`
-	Password  string         `json:"password" binding:"required"`
-	Phone     string         `json:"phone"`
-	Role      string         `json:"role" gorm:"default:driver"`
-
-	// Optional: Link to Vehicle if one-to-one
-	Vehicle   Vehicle        `gorm:"foreignKey:DriverID" json:"vehicle,omitempty"`
-	VehicleID uint           `json:"vehicle_id"`
+    gorm.Model
+    UserID          uint   `json:"user_id" gorm:"unique"` // Foreign key to User
+    User            User   `gorm:"foreignKey:UserID"`     // User association
+    Name            string `json:"name"`                  // Driver's specific name (if different from User.Name)
+    Phone           string `json:"phone"`                 // Driver's specific phone (if different from User.Phone)
+    LicenseNumber   string `json:"license_number"`
+    SaccoID         uint   `json:"sacco_id"` // Foreign key to Sacco
+    Sacco           Sacco  `gorm:"foreignKey:SaccoID"` // Sacco association
+    // DO NOT include Email, Password, or Role here. They are in the User model.
 }

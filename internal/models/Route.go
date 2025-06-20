@@ -15,7 +15,7 @@ type Route struct {
 
 	// Geometry stored in PostGIS as a LINESTRING (SRID 4326)
 	// When creating, provide GeoJSON; migrations define the column type appropriately.
-	Geometry    string   `gorm:"type:geometry(LineString,4326)" json:"geometry"`
+	Geometry    []byte  `gorm:"type:bytea"`
 
 	// Associations
 	Stages      []Stage  `gorm:"foreignKey:RouteID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;" json:"stages,omitempty"`
