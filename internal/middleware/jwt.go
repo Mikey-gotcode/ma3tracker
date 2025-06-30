@@ -29,10 +29,25 @@ func GenerateToken(userID uint, role string) (string, error) {
 	return token.SignedString(secret)
 }
 
-func ValidateToken(tokenStr string) (*jwt.Token, error) {
-	return jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
+// Claims structure for JWT
+type Claims struct {
+	UserID uint   `json:"user_id"`
+	Role   string `json:"role"`
+	jwt.RegisteredClaims
+}
+
+func ValidateToken(tokenStr string) (*Claims, error) {
+	token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		return secret, nil
 	})
+	if err != nil {
+		return nil, err
+	}
+	
+	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
+		return claims, nil
+	}
+	return nil, jwt.ErrTokenMalformed
 }
 
 // RequireAuth ensures a valid JWT is present

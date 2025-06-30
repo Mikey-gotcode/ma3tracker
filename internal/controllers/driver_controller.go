@@ -6,6 +6,8 @@ import (
 	"strconv" // For parsing IDs
 	"gorm.io/gorm"
 
+	 logrus "github.com/sirupsen/logrus"
+
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt" // Used for password hashing
 
@@ -85,6 +87,48 @@ func SetServiceStatus(c *gin.Context) {
 		"message": "Service status updated successfully.",
 		"vehicle": vehicle,
 	})
+}
+// This endpoint might be used by a driver to fetch their own vehicle.
+func GetVehicleByDriverID(c *gin.Context) {
+    driverIDStr := c.Param("driverId")
+    driverID, err := strconv.ParseUint(driverIDStr, 10, 64)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid driver ID format"})
+        return
+    }
+
+    var vehicle models.Vehicle
+    // Preload Driver to ensure the relation is established if needed in response
+    if err := config.DB.Preload("Driver").Where("driver_id = ?", uint(driverID)).First(&vehicle).Error; err != nil {
+        if errors.Is(err, gorm.ErrRecordNotFound) {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Vehicle not found for this driver ID."})
+            return
+        }
+        logrus.WithError(err).Error("Error fetching vehicle by driver ID from database")
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch vehicle data."})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{"vehicle": vehicle})
+}
+
+// Assuming you have access to config.DB and a way to get the driverID from JWT
+// (e.g., from c.MustGet("user_id").(float64))
+
+// GetAuthenticatedDriverVehicle fetches the vehicle assigned to the authenticated driver.
+func GetAuthenticatedDriverVehicle(c *gin.Context) {
+    driverID := uint(c.MustGet("user_id").(float64)) // Assuming user_id in JWT is the driver's ID
+    var vehicle models.Vehicle
+    if err := config.DB.Where("driver_id = ?", driverID).First(&vehicle).Error; err != nil {
+        if errors.Is(err, gorm.ErrRecordNotFound) {
+            c.JSON(http.StatusNotFound, gin.H{"error": "No vehicle assigned to this driver."})
+            return
+        }
+        logrus.WithError(err).Error("Error fetching vehicle for authenticated driver")
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch vehicle data."})
+        return
+    }
+    c.JSON(http.StatusOK, gin.H{"vehicle": vehicle})
 }
 
 // GetDriver fetches a single driver by their UserID.
@@ -252,6 +296,73 @@ func UpdateDriver(c *gin.Context) {
 		"message":      "Driver details updated successfully.",
 		"driver_profile": response,
 	})
+}
+
+// UpdateVehicleStatus updates the in_service status of a vehicle.
+// UpdateVehicleStatus updates the in_service status of a vehicle.
+func UpdateVehicleStatus(c *gin.Context) {
+    vehicleID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid vehicle ID"})
+        return
+    }
+
+    var input struct {
+        InService *bool `json:"in_service"` // Use pointer to differentiate between missing and false
+    }
+    if err := c.ShouldBindJSON(&input); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input: " + err.Error()})
+        return
+    }
+
+    var vehicle models.Vehicle
+    if err := config.DB.First(&vehicle, vehicleID).Error; err != nil {
+        if errors.Is(err, gorm.ErrRecordNotFound) {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Vehicle not found"})
+            return
+        }
+        logrus.WithError(err).Error("Database error fetching vehicle for update")
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch vehicle"})
+        return
+    }
+
+    // 1. Get the authenticated User.ID from the JWT
+    // This is User.ID (e.g., 33)
+    authenticatedUserID := uint(c.MustGet("user_id").(float64))
+
+    // 2. Find the Driver profile associated with this User.ID
+    var driverProfile models.Driver
+    // Assuming your Driver model has a UserID field linking it to the User model
+    if err := config.DB.Where("user_id = ?", authenticatedUserID).First(&driverProfile).Error; err != nil {
+        if errors.Is(err, gorm.ErrRecordNotFound) {
+            // This user is authenticated, but no driver profile is linked to them.
+            // Or the driver profile lookup failed.
+            c.JSON(http.StatusUnauthorized, gin.H{"error": "Driver profile not found for the authenticated user."})
+            return
+        }
+        logrus.WithError(err).Error("Database error fetching driver profile for authorization")
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify authorization."})
+        return
+    }
+
+    // 3. Now, compare the vehicle's DriverID with the ID of the found driver profile
+    // This compares Driver.ID (e.g., 10) with Vehicle.DriverID (which should be 10)
+    if vehicle.DriverID != driverProfile.ID {
+        c.JSON(http.StatusForbidden, gin.H{"error": "You are not authorized to update this vehicle. It is assigned to a different driver."})
+        return
+    }
+
+    // If authorization passes, proceed with update
+    if input.InService != nil {
+        vehicle.InService = *input.InService
+    }
+
+    if err := config.DB.Save(&vehicle).Error; err != nil {
+        logrus.WithError(err).Error("Failed to save vehicle status update")
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update vehicle status"})
+        return
+    }
+    c.JSON(http.StatusOK, gin.H{"message": "Vehicle status updated successfully", "vehicle": vehicle})
 }
 
 // DeleteDriver removes a driver by their UserID. This will delete the User and

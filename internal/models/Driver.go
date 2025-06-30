@@ -9,6 +9,7 @@ import (
 type Driver struct {
     gorm.Model
     UserID          uint   `json:"user_id" gorm:"unique"` // Foreign key to User
+    VehicleID     uint   `json:"vehicle_id" gorm:"index"`
     User            User   `gorm:"foreignKey:UserID"`     // User association
     Name            string `json:"name"`                  // Driver's specific name (if different from User.Name)
     Phone           string `json:"phone"`                 // Driver's specific phone (if different from User.Phone)

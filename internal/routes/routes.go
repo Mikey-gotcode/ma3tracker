@@ -13,6 +13,7 @@ func SetupRouter() *gin.Engine{
 	SaccoRoutes(r)
 	VehicleRoutes(r)
 	AdminRoutes(r)
+	WebSocketRoutes(r)
 
 	r.Run(":8080")
 

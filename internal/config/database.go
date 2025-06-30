@@ -49,7 +49,7 @@ func InitDB() {
 	db.Exec("CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;")
 
 	// Auto-migrate your user model (optional but recommended)
-	err = db.AutoMigrate(&models.User{},&models.Driver{},&models.Sacco{},&models.Route{},&models.Vehicle{},&models.Stage{})
+	err = db.AutoMigrate(&models.User{},&models.Driver{},&models.Sacco{},&models.Route{},&models.Vehicle{},&models.Stage{}, &models.LocationHistory{})
 	if err != nil {
 		log.Fatalf("auto-migration failed: %v", err)
 	}

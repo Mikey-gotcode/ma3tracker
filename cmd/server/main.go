@@ -25,6 +25,7 @@ func main() {
 
 	// Recovery middleware
 	r.Use(gin.Recovery())
+	
 
 	    // Request logging middleware
    // r.Use(ginlog.SetLogger())
