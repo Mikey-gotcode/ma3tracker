@@ -160,6 +160,17 @@ func ListVehicles(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": vehicles})
 }
 
+// ListVehicles returns only vehicles that are currently in service (in_service = true).
+func ListActiveVehicles(c *gin.Context) {
+	var vehicles []models.Vehicle
+	if err := config.DB.Where("in_service = ?", true).Find(&vehicles).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error listing vehicles: " + err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": vehicles})
+}
+
+
 func ListVehiclesBySacco(c *gin.Context) {
 	// Get sacco_id from PATH parameter
 	saccoIDStr := c.Param("id") // Extract 'id' from the URL path (e.g., /vehicles/123 -> id = "123")

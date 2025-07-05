@@ -14,6 +14,7 @@ func SetupRouter() *gin.Engine{
 	VehicleRoutes(r)
 	AdminRoutes(r)
 	WebSocketRoutes(r)
+	CommuterRoutes(r)
 
 	r.Run(":8080")
 
